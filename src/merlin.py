@@ -103,7 +103,7 @@ def get_ancestry_clustered_data(df_variant, df_total, read_threshold = 25, vaf_t
   # something something about cloen assignment???
 
 # ILP formulation
-def set_ILP_formuation(G_ancestry, cell2group, df_cluster_variant, df_cluster_total, prefix, minU=0.05):
+def set_ILP_formuation(G_ancestry, cell2group, df_cluster_variant, df_cluster_total, prefix, minU=0.05, ncores=1, timelimit=2*60*60):
     
     nmutations = len(G_ancestry.nodes) - 1
     nclones = nmutations
@@ -121,7 +121,7 @@ def set_ILP_formuation(G_ancestry, cell2group, df_cluster_variant, df_cluster_to
 
    
     model = gp.Model('phyloMito')
-    model.setParam('TimeLimit', 2*60*60)
+    model.setParam('TimeLimit', timelimit)
     x = model.addVars(nedges, vtype=gp.GRB.BINARY, name='x')
     # support of mixture matrix
     a = model.addVars(ngroups, nmutations, vtype=gp.GRB.BINARY, name='a')
@@ -226,7 +226,7 @@ def set_ILP_formuation(G_ancestry, cell2group, df_cluster_variant, df_cluster_to
     model.setObjective(obj_sum,gp.GRB.MINIMIZE)
     
 
-    model.setParam(gp.GRB.Param.Threads, 1)
+    model.setParam(gp.GRB.Param.Threads, ncores)
     model.setParam(gp.GRB.Param.Method, 4)
     model.optimize()
 
@@ -265,6 +265,8 @@ def main():
     parser.add_argument('-o','--out', type=str, required=True, help='prefix for output files')
     parser.add_argument('--cell_list', type=str, required=False, help='list of cell name (optional)')
     parser.add_argument('--cell_groups',type=str,required=False, help='clustering of cells, ')
+    parser.add_argument('-p','--threads', type=int, required=False, default = 1, help='Number of threads')
+    parser.add_argument('-l','--timelimit', type=int, required=False, default = 2*60*60, help='Time limit for solver')
     args = parser.parse_args()
 
     df_variant = pd.read_csv(args.variant, header=0, index_col = 0).astype(int)
@@ -273,6 +275,6 @@ def main():
     G_ancestry = get_ancestry_clustered_data(df_variant, df_total)
     
     cell2group = {i:i for i in range(len(df_total.columns))}
-    set_ILP_formuation(G_ancestry, cell2group, df_variant, df_total, args.out)
+    set_ILP_formuation(G_ancestry, cell2group, df_variant, df_total, args.out, ncores = args.threads, timelimit = args.timelimit)
 if __name__ == "__main__":
     main()
